@@ -9,7 +9,7 @@ pub struct Graph {
     //vertex: HashMap<(String, Version), Vertice>
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Vertice {
     name: String,
     version: Version,
@@ -75,9 +75,19 @@ impl Graph {
         }
     }
 
+    // TODO: Remove pub
+    pub fn sort_children(&mut self) {
+        for (_, versions) in self.vertex.iter_mut() {
+            for (_, vertice) in versions.iter_mut() {
+                vertice.sort_children();
+            }
+        }
+    }
+
 }
 
 impl Vertice {
+
     fn new(name: String, version: Version) -> Vertice {
         Vertice {
             name,
@@ -86,4 +96,9 @@ impl Vertice {
             children: Vec::new()
         }
     }
+    
+    pub fn sort_children(&mut self) {
+        self.children.sort_by(|a, b| b.cmp(a));
+    }
+
 }
