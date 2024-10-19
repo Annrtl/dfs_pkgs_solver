@@ -18,7 +18,10 @@ struct Requirement {
     constraint: VersionReq,
 }
 
-fn solve_dependencies(modules: Vec<&Module>, top_module: Module) -> Result<Vec<(String, Version)>, String> {
+fn solve_dependencies(
+    modules: Vec<&Module>,
+    top_module: Module,
+) -> Result<Vec<(String, Version)>, String> {
     let mut graph = Graph::new();
     graph.loads_modules(modules);
     graph.sort_children();
@@ -47,7 +50,7 @@ fn main() {
             constraint: VersionReq::parse("^0.1.2").unwrap(),
         }],
     };
- 
+
     modules.push(&module);
 
     let module = Module {
@@ -64,14 +67,16 @@ fn main() {
     let module = Module {
         name: "B".to_string(),
         version: Version::parse("0.1.6").unwrap(),
-        requirements: vec![Requirement {
-            module: "C".to_string(),
-            constraint: VersionReq::parse("^1.1.7").unwrap(),
-        },
-        Requirement {
-            module: "D".to_string(),
-            constraint: VersionReq::parse("^1.1.7").unwrap(),
-        }],
+        requirements: vec![
+            Requirement {
+                module: "C".to_string(),
+                constraint: VersionReq::parse("^1.1.7").unwrap(),
+            },
+            Requirement {
+                module: "D".to_string(),
+                constraint: VersionReq::parse("^1.1.7").unwrap(),
+            },
+        ],
     };
 
     modules.push(&module);
@@ -102,7 +107,7 @@ fn main() {
     };
 
     modules.push(&module);
-    
+
     let module = Module {
         name: "C".to_string(),
         version: Version::parse("1.2.0").unwrap(),
@@ -110,7 +115,7 @@ fn main() {
     };
 
     modules.push(&module);
-    
+
     let module = Module {
         name: "D".to_string(),
         version: Version::parse("1.2.0").unwrap(),
