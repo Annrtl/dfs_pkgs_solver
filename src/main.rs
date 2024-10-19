@@ -67,6 +67,10 @@ fn main() {
         requirements: vec![Requirement {
             module: "C".to_string(),
             constraint: VersionReq::parse("^1.1.7").unwrap(),
+        },
+        Requirement {
+            module: "D".to_string(),
+            constraint: VersionReq::parse("^1.1.7").unwrap(),
         }],
     };
 
@@ -98,9 +102,17 @@ fn main() {
     };
 
     modules.push(&module);
-
+    
     let module = Module {
         name: "C".to_string(),
+        version: Version::parse("1.2.0").unwrap(),
+        requirements: vec![],
+    };
+
+    modules.push(&module);
+    
+    let module = Module {
+        name: "D".to_string(),
         version: Version::parse("1.2.0").unwrap(),
         requirements: vec![],
     };

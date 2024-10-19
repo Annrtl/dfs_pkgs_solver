@@ -6,15 +6,12 @@ use crate::{Module, Requirement};
 
 pub struct Graph {
     pub vertex: HashMap<String, HashMap<Version, Vertice>>,
-    //vertex: HashMap<(String, Version), Vertice>
 }
 
 #[derive(Debug, Clone)]
 pub struct Vertice {
-    name: String,
-    version: Version,
-    parents: Vec<(String, Version)>,
-    children: Vec<(String, Version)>,
+    parents: BTreeMap<String, Vec<Version>>,
+    children: BTreeMap<String, Vec<Version>>,
 }
 
 impl Graph {
@@ -35,7 +32,7 @@ impl Graph {
     }
 
     fn add_vertice_from_module(&mut self, module: &Module) {
-        let vertice = Vertice::new(module.name.clone(), module.version.clone());
+        let vertice = Vertice::new();
         if self.vertex.contains_key(&module.name) {
             let versions_vertice = self.vertex.get_mut(&module.name).unwrap();
             versions_vertice.insert(module.version.clone(), vertice);
@@ -53,22 +50,32 @@ impl Graph {
     }
 
     fn add_edge_from_requirement(&mut self, name: String, version: Version, requirement: &Requirement) {
-        let mut children: Vec<(String, Version)> = Vec::new();
+        let mut subs_children: Vec<(String, Version)> = Vec::new();
         for (child_name, child_versions) in self.vertex.iter() {
             for child_version in child_versions.keys() {
                 if requirement.constraint.matches(child_version) {
-                    children.push((child_name.clone(), child_version.clone()));
+                    subs_children.push((child_name.clone(), child_version.clone()));
                 }
             }
         }
         for (child_name, child_versions) in self.vertex.iter_mut() {
             for (child_version, child_vertice) in child_versions.iter_mut() {
-                if children.contains(&(child_name.clone(), child_version.clone())) {
-                    child_vertice.parents.push((name.clone(), version.clone()));
+                if subs_children.contains(&(child_name.clone(), child_version.clone())) {
+                    if child_vertice.parents.contains_key(&name) {
+                        let parents = child_vertice.parents.get_mut(&name).unwrap();
+                        parents.push(version.clone());
+                    } else {
+                        child_vertice.parents.insert(name.clone(), vec![version.clone()]);
+                    }
                 }
                 if child_name == &name && child_version == &version {
-                    for child in &children {
-                        child_vertice.children.push(child.clone());
+                    for (subs_child_name, subs_child_version) in &subs_children {
+                        if child_vertice.children.contains_key(subs_child_name) {
+                            let versions = child_vertice.children.get_mut(subs_child_name).unwrap();
+                            versions.push(subs_child_version.clone());
+                        } else {
+                            child_vertice.children.insert(subs_child_name.clone(), vec![subs_child_version.clone()]);
+                        }
                     }
                 }
             }
@@ -84,13 +91,10 @@ impl Graph {
         }
     }
 
-    fn dfs_recursive(&self, visited: &mut BTreeMap<String, Version>, vertice: Vertice) -> Result<String, String>{
-        // No child
-        if vertice.children.is_empty() {
-            return Ok("".to_string());
-        }
-
-        for (name, version) in vertice.children {
+    fn dfs_recursive_versions(&self, visited: &mut BTreeMap<String, Version>, name: String, versions: &Vec<Version>) -> Result<String, String> {
+        // For each version of the dependency module
+        for version in versions {
+            // If a module version is already visited
             if visited.contains_key(&name) {
                 if ! visited.get(&name).unwrap().eq(&version) {
                     continue;
@@ -99,8 +103,9 @@ impl Graph {
             } else {
                 visited.insert(name.clone(), version.clone());
             }
-
+            
             let child_vertice = self.vertex.get(&name).unwrap().get(&version).unwrap();
+            
             match self.dfs_recursive(visited, child_vertice.clone()) {
                 Ok(_) => return Ok("".to_string()),
                 Err(_) => {
@@ -109,6 +114,22 @@ impl Graph {
             }
         }
         return Err("".to_string());
+    }
+
+    fn dfs_recursive(&self, visited: &mut BTreeMap<String, Version>, vertice: Vertice) -> Result<String, String>{
+        // No child
+        if vertice.children.is_empty() {
+            return Ok("".to_string());
+        }
+
+        // For each dependencuy module
+        for (name, versions) in &vertice.children {
+            match self.dfs_recursive_versions(visited, name.clone(), versions) {
+                Ok(_) => continue,
+                Err(_) => return Err("".to_string())
+            }
+        }
+        return Ok("".to_string());
     }
 
     pub fn dfs(&self, top_module: String, top_version: Version) -> Result<Vec<(String, Version)>, String> {
@@ -130,17 +151,17 @@ impl Graph {
 
 impl Vertice {
 
-    fn new(name: String, version: Version) -> Vertice {
+    fn new() -> Vertice {
         Vertice {
-            name,
-            version,
-            parents: Vec::new(),
-            children: Vec::new()
+            parents: BTreeMap::new(),
+            children: BTreeMap::new()
         }
     }
     
     pub fn sort_children(&mut self) {
-        self.children.sort_by(|a, b| b.cmp(a));
+        for (_, child) in self.children.iter_mut() {
+            child.sort_by(|a, b| b.cmp(a));
+        }
     }
 
 }
