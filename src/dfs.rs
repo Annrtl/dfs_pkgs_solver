@@ -5,11 +5,12 @@ use semver::Version;
 use crate::{Module, Requirement};
 
 pub struct Graph {
-    vertex: HashMap<String, HashMap<Version, Vertice>>,
+    pub vertex: HashMap<String, HashMap<Version, Vertice>>,
     //vertex: HashMap<(String, Version), Vertice>
 }
 
-struct Vertice {
+#[derive(Debug)]
+pub struct Vertice {
     name: String,
     version: Version,
     parents: Vec<(String, Version)>,

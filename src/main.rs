@@ -21,6 +21,13 @@ struct Requirement {
 fn solve_dependencies(modules: Vec<&Module>, top_module: Module) -> Result<Vec<(String, Version)>, String> {
     let mut graph = Graph::new();
     graph.loads_modules(modules);
+
+    #[cfg(debug_assertions)]
+    for (name, versions) in graph.vertex.iter() {
+        for (version, vertice) in versions.iter() {
+            println!("{}-{}: {:?}", name, version, vertice);
+        }
+    }
     Ok(Vec::new())
 }
 
