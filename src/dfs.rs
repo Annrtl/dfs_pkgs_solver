@@ -1,5 +1,5 @@
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use semver::Version;
 
 use crate::{Module, Requirement};
@@ -84,7 +84,7 @@ impl Graph {
         }
     }
 
-    fn dfs_recursive(&self, visited: &mut HashMap<String, Version>, vertice: Vertice) -> Result<String, String>{
+    fn dfs_recursive(&self, visited: &mut BTreeMap<String, Version>, vertice: Vertice) -> Result<String, String>{
         // No child
         if vertice.children.is_empty() {
             return Ok("".to_string());
@@ -112,7 +112,7 @@ impl Graph {
     }
 
     pub fn dfs(&self, top_module: String, top_version: Version) -> Result<Vec<(String, Version)>, String> {
-        let mut visited: HashMap<String, Version> = HashMap::new();
+        let mut visited: BTreeMap<String, Version> = BTreeMap::new();
         visited.insert(top_module.clone(), top_version.clone());
         let top_vertice = self.vertex.get(&top_module).unwrap().get(&top_version).unwrap();
         match self.dfs_recursive(&mut visited, top_vertice.clone()) {
