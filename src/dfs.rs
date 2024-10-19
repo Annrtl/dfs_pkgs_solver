@@ -84,6 +84,48 @@ impl Graph {
         }
     }
 
+    fn dfs_recursive(&self, visited: &mut HashMap<String, Version>, vertice: Vertice) -> Result<String, String>{
+        // No child
+        if vertice.children.is_empty() {
+            return Ok("".to_string());
+        }
+
+        for (name, version) in vertice.children {
+            if visited.contains_key(&name) {
+                if ! visited.get(&name).unwrap().eq(&version) {
+                    continue;
+                }
+                visited.get_mut(&name).unwrap().clone_from(&version);
+            } else {
+                visited.insert(name.clone(), version.clone());
+            }
+
+            let child_vertice = self.vertex.get(&name).unwrap().get(&version).unwrap();
+            match self.dfs_recursive(visited, child_vertice.clone()) {
+                Ok(_) => return Ok("".to_string()),
+                Err(_) => {
+                    visited.remove(&name);
+                }
+            }
+        }
+        return Err("".to_string());
+    }
+
+    pub fn dfs(&self, top_module: String, top_version: Version) -> Result<Vec<(String, Version)>, String> {
+        let mut visited: HashMap<String, Version> = HashMap::new();
+        visited.insert(top_module.clone(), top_version.clone());
+        let top_vertice = self.vertex.get(&top_module).unwrap().get(&top_version).unwrap();
+        match self.dfs_recursive(&mut visited, top_vertice.clone()) {
+            Ok(_) => {
+                let mut result: Vec<(String, Version)> = Vec::new();
+                for (name, version) in visited.iter() {
+                    result.push((name.clone(), version.clone()));
+                }
+                Ok(result)
+            },
+            Err(_) => Err("".to_string())
+        }
+    }
 }
 
 impl Vertice {

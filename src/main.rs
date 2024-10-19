@@ -29,7 +29,11 @@ fn solve_dependencies(modules: Vec<&Module>, top_module: Module) -> Result<Vec<(
             println!("{}-{}: {:?}", name, version, vertice);
         }
     }
-    Ok(Vec::new())
+
+    match graph.dfs(top_module.name, top_module.version) {
+        Ok(result) => Ok(result),
+        Err(err) => Err(err),
+    }
 }
 
 fn main() {
