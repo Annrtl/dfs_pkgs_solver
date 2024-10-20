@@ -57,17 +57,23 @@ impl Graph {
         version: Version,
         requirement: &Requirement,
     ) {
-        let mut subs_children: Vec<(String, Version)> = Vec::new();
-        for (child_name, child_versions) in self.vertex.iter() {
-            for child_version in child_versions.keys() {
-                if requirement.constraint.matches(child_version) {
-                    subs_children.push((child_name.clone(), child_version.clone()));
+        // Prepare the list of children to add
+        let mut children_to_add: Vec<(String, Version)> = Vec::new();
+        for (vertice_name, vertice_versions) in self.vertex.iter() {
+            for vertice_version in vertice_versions.keys() {
+                if (vertice_name.to_string() == requirement.module)
+                    && requirement.constraint.matches(vertice_version)
+                {
+                    children_to_add.push((vertice_name.clone(), vertice_version.clone()));
                 }
             }
         }
-        for (child_name, child_versions) in self.vertex.iter_mut() {
-            for (child_version, child_vertice) in child_versions.iter_mut() {
-                if subs_children.contains(&(child_name.clone(), child_version.clone())) {
+
+        // Add the prepared children to the graph
+        for (vertice_name, vertice_versions) in self.vertex.iter_mut() {
+            for (vertice_version, child_vertice) in vertice_versions.iter_mut() {
+                // Add parent to the child
+                if children_to_add.contains(&(vertice_name.clone(), vertice_version.clone())) {
                     if child_vertice.parents.contains_key(&name) {
                         let parents = child_vertice.parents.get_mut(&name).unwrap();
                         parents.push(version.clone());
@@ -77,8 +83,10 @@ impl Graph {
                             .insert(name.clone(), vec![version.clone()]);
                     }
                 }
-                if child_name == &name && child_version == &version {
-                    for (subs_child_name, subs_child_version) in &subs_children {
+
+                // Add child to the parent
+                if vertice_name == &name && vertice_version == &version {
+                    for (subs_child_name, subs_child_version) in &children_to_add {
                         if child_vertice.children.contains_key(subs_child_name) {
                             let versions = child_vertice.children.get_mut(subs_child_name).unwrap();
                             versions.push(subs_child_version.clone());
@@ -93,8 +101,7 @@ impl Graph {
         }
     }
 
-    // TODO: Remove pub
-    pub fn sort_children(&mut self) {
+    fn sort_children(&mut self) {
         for (_, versions) in self.vertex.iter_mut() {
             for (_, vertice) in versions.iter_mut() {
                 vertice.sort_children();
@@ -153,10 +160,11 @@ impl Graph {
     }
 
     pub fn dfs(
-        &self,
+        &mut self,
         top_module: String,
         top_version: Version,
     ) -> Result<Vec<(String, Version)>, String> {
+        self.sort_children();
         let mut visited: BTreeMap<String, Version> = BTreeMap::new();
         visited.insert(top_module.clone(), top_version.clone());
         let top_vertice = self

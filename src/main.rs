@@ -24,7 +24,6 @@ fn solve_dependencies(
 ) -> Result<Vec<(String, Version)>, String> {
     let mut graph = Graph::new();
     graph.loads_modules(modules);
-    graph.sort_children();
 
     #[cfg(debug_assertions)]
     for (name, versions) in graph.vertex.iter() {
