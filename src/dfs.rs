@@ -9,8 +9,12 @@ pub struct Graph {
 
 #[derive(Debug, Clone)]
 pub struct Vertice {
+    name: String,
+    version: Version,
     parents: BTreeMap<String, Vec<Version>>,
     children: BTreeMap<String, Vec<Version>>,
+    requirements: Vec<Requirement>,
+    unsatisfied_requirements: Vec<Requirement>,
 }
 
 impl Graph {
@@ -24,13 +28,15 @@ impl Graph {
         for module in &modules {
             self.add_vertice_from_module(module);
         }
-        for module in &modules {
-            self.add_edges_from_module(module);
-        }
+        self.update_vertices();
     }
 
     fn add_vertice_from_module(&mut self, module: &Module) {
-        let vertice = Vertice::new();
+        let vertice = Vertice::new(
+            module.name.clone(),
+            module.version.clone(),
+            module.requirements.clone(),
+        );
         if self.vertex.contains_key(&module.name) {
             let versions_vertice = self.vertex.get_mut(&module.name).unwrap();
             versions_vertice.insert(module.version.clone(), vertice);
@@ -41,62 +47,12 @@ impl Graph {
         }
     }
 
-    fn add_edges_from_module(&mut self, module: &Module) {
-        for requirement in &module.requirements {
-            self.add_edge_from_requirement(
-                module.name.clone(),
-                module.version.clone(),
-                requirement,
-            );
-        }
-    }
-
-    fn add_edge_from_requirement(
-        &mut self,
-        name: String,
-        version: Version,
-        requirement: &Requirement,
-    ) {
-        // Prepare the list of children to add
-        let mut children_to_add: Vec<(String, Version)> = Vec::new();
-        for (vertice_name, vertice_versions) in self.vertex.iter() {
-            for vertice_version in vertice_versions.keys() {
-                if (vertice_name.to_string() == requirement.module)
-                    && requirement.constraint.matches(vertice_version)
-                {
-                    children_to_add.push((vertice_name.clone(), vertice_version.clone()));
-                }
-            }
-        }
-
-        // Add the prepared children to the graph
-        for (vertice_name, vertice_versions) in self.vertex.iter_mut() {
-            for (vertice_version, child_vertice) in vertice_versions.iter_mut() {
-                // Add parent to the child
-                if children_to_add.contains(&(vertice_name.clone(), vertice_version.clone())) {
-                    if child_vertice.parents.contains_key(&name) {
-                        let parents = child_vertice.parents.get_mut(&name).unwrap();
-                        parents.push(version.clone());
-                    } else {
-                        child_vertice
-                            .parents
-                            .insert(name.clone(), vec![version.clone()]);
-                    }
-                }
-
-                // Add child to the parent
-                if vertice_name == &name && vertice_version == &version {
-                    for (subs_child_name, subs_child_version) in &children_to_add {
-                        if child_vertice.children.contains_key(subs_child_name) {
-                            let versions = child_vertice.children.get_mut(subs_child_name).unwrap();
-                            versions.push(subs_child_version.clone());
-                        } else {
-                            child_vertice
-                                .children
-                                .insert(subs_child_name.clone(), vec![subs_child_version.clone()]);
-                        }
-                    }
-                }
+    fn update_vertices(&mut self) {
+        let copy_of_graph_vertex = self.vertex.clone();
+        for (_, versions) in self.vertex.iter_mut() {
+            for (_, vertice) in versions.iter_mut() {
+                vertice.add_children_from_graph(copy_of_graph_vertex.clone());
+                // TODO Add parents to vertex
             }
         }
     }
@@ -139,24 +95,34 @@ impl Graph {
         return Err("".to_string());
     }
 
+    // TODO check cylces with parents
     fn dfs_recursive(
         &self,
         visited: &mut BTreeMap<String, Version>,
         vertice: Vertice,
     ) -> Result<String, String> {
-        // No child
+        // Unsatisfied vertice
+        if !vertice.is_satisfied() {
+            let unsatisfied_requirements = vertice.get_unsatisfied_requirements_string();
+            return Err(format!(
+                "Vertice requirement of {}:{} not satisfied:\n{}",
+                vertice.name, vertice.version, unsatisfied_requirements
+            ));
+        }
+
+        // Satisfied bu no children
         if vertice.children.is_empty() {
-            return Ok("".to_string());
+            return Ok("No child".to_string());
         }
 
         // For each dependencuy module
         for (name, versions) in &vertice.children {
             match self.dfs_recursive_versions(visited, name.clone(), versions) {
                 Ok(_) => continue,
-                Err(_) => return Err("".to_string()),
+                Err(message) => return Err(message),
             }
         }
-        return Ok("".to_string());
+        return Ok("All children satisfied".to_string());
     }
 
     pub fn dfs(
@@ -181,16 +147,20 @@ impl Graph {
                 }
                 Ok(result)
             }
-            Err(_) => Err("".to_string()),
+            Err(err) => Err(err),
         }
     }
 }
 
 impl Vertice {
-    fn new() -> Vertice {
+    fn new(name: String, version: Version, requirements: Vec<Requirement>) -> Vertice {
         Vertice {
+            name: name,
+            version: version,
             parents: BTreeMap::new(),
             children: BTreeMap::new(),
+            requirements: requirements,
+            unsatisfied_requirements: Vec::new(),
         }
     }
 
@@ -198,5 +168,71 @@ impl Vertice {
         for (_, child) in self.children.iter_mut() {
             child.sort_by(|a, b| b.cmp(a));
         }
+    }
+
+    fn add_children_from_graph(&mut self, vertex: HashMap<String, HashMap<Version, Vertice>>) {
+        for requirement in self.requirements.clone() {
+            let requirement_vertex = vertex.get(&requirement.module).unwrap();
+            match self.add_children_from_requirement(requirement.clone(), requirement_vertex) {
+                Ok(_) => continue,
+                Err(_) => {
+                    self.unsatisfied_requirements.push(requirement);
+                }
+            }
+        }
+    }
+
+    fn add_children_from_requirement(
+        &mut self,
+        requirement: Requirement,
+        vertex: &HashMap<Version, Vertice>,
+    ) -> Result<(), ()> {
+        let mut satisfied = false;
+
+        for (version, vertice) in vertex.iter() {
+            if requirement.constraint.matches(version) {
+                self.add_children(vertice.name.clone(), version.clone());
+                satisfied = true;
+            }
+        }
+
+        if satisfied {
+            Ok(())
+        } else {
+            Err(())
+        }
+    }
+
+    fn add_children(&mut self, name: String, version: Version) {
+        if self.children.contains_key(&name) {
+            let versions = self.children.get_mut(&name).unwrap();
+            versions.push(version);
+        } else {
+            self.children.insert(name, vec![version]);
+        }
+    }
+
+    fn add_parents(&mut self, name: String, version: Version) {
+        if self.parents.contains_key(&name) {
+            let versions = self.parents.get_mut(&name).unwrap();
+            versions.push(version);
+        } else {
+            self.parents.insert(name, vec![version]);
+        }
+    }
+
+    fn is_satisfied(&self) -> bool {
+        self.unsatisfied_requirements.is_empty()
+    }
+
+    fn get_unsatisfied_requirements_string(&self) -> String {
+        let mut result = String::new();
+        for requirement in &self.unsatisfied_requirements {
+            result.push_str(&format!(
+                "\t{}: {}\n",
+                requirement.module, requirement.constraint
+            ));
+        }
+        result
     }
 }

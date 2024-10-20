@@ -56,7 +56,7 @@ fn main() {
             Requirement {
                 module: "DFF".to_string(),
                 constraint: VersionReq::parse("^0.1.0").unwrap(),
-            }
+            },
         ],
     };
 
@@ -77,7 +77,7 @@ fn main() {
             Requirement {
                 module: "DFF".to_string(),
                 constraint: VersionReq::parse("~0.2.0").unwrap(),
-            }
+            },
         ],
     };
 
@@ -89,7 +89,7 @@ fn main() {
         requirements: vec![
             Requirement {
                 module: "UART".to_string(),
-                constraint: VersionReq::parse("^0.2.0").unwrap(),
+                constraint: VersionReq::parse("^0.5.0").unwrap(), // ^0.2.0 not satisfied
             },
             Requirement {
                 module: "I2C".to_string(),
@@ -97,8 +97,8 @@ fn main() {
             },
             Requirement {
                 module: "DFF".to_string(),
-                constraint: VersionReq::parse("^0.1.1").unwrap(),
-            }
+                constraint: VersionReq::parse("^0.2.1").unwrap(), // ^0.1.1 not satisfied
+            },
         ],
     };
 
@@ -118,12 +118,10 @@ fn main() {
     let module = Module {
         name: "UART".to_string(),
         version: Version::parse("0.5.0").unwrap(),
-        requirements: vec![
-            Requirement {
-                module: "DFF".to_string(),
-                constraint: VersionReq::parse("^0.2.0").unwrap(),
-            },
-        ],
+        requirements: vec![Requirement {
+            module: "DFF".to_string(),
+            constraint: VersionReq::parse("^0.2.0").unwrap(),
+        }],
     };
 
     modules.push(&module);
@@ -211,7 +209,7 @@ fn main() {
             Requirement {
                 module: "DFF".to_string(),
                 constraint: VersionReq::parse("^0.1.1").unwrap(),
-            }
+            },
         ],
     };
 
