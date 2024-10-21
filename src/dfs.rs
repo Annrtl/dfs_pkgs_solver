@@ -52,8 +52,25 @@ impl Graph {
         for (_, versions) in self.vertex.iter_mut() {
             for (_, vertice) in versions.iter_mut() {
                 vertice.add_children_from_graph(copy_of_graph_vertex.clone());
-                // TODO Add parents to vertex
             }
+        }
+
+        let mut parents_to_add: Vec<(String, Version, String, Version)> = Vec::new();
+        for (_, versions) in self.vertex.iter() {
+            for (_, vertice) in versions.iter() {
+                let mut vertice_parents_to_add = vertice.get_parents_to_add_list();
+                parents_to_add.append(&mut vertice_parents_to_add);
+            }
+        }
+
+        for (name, version, parent_name, parent_version) in parents_to_add {
+            let vertice = self
+                .vertex
+                .get_mut(&name)
+                .unwrap()
+                .get_mut(&version)
+                .unwrap();
+            vertice.add_parents(parent_name, parent_version);
         }
     }
 
@@ -210,6 +227,21 @@ impl Vertice {
         } else {
             self.children.insert(name, vec![version]);
         }
+    }
+
+    fn get_parents_to_add_list(&self) -> Vec<(String, Version, String, Version)> {
+        let mut parents_to_add: Vec<(String, Version, String, Version)> = Vec::new();
+        for (name, versions) in &self.children {
+            for version in versions {
+                parents_to_add.push((
+                    name.clone(),
+                    version.clone(),
+                    self.name.clone(),
+                    self.version.clone(),
+                ));
+            }
+        }
+        parents_to_add
     }
 
     fn add_parents(&mut self, name: String, version: Version) {
