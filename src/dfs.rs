@@ -108,8 +108,6 @@ impl Graph {
                 if !visited.get(&name).unwrap().eq(&version) {
                     continue;
                 }
-                // TODO Need to overwreite the version ?
-                visited.get_mut(&name).unwrap().clone_from(&version);
             } else {
                 // Select a version for this module
                 visited.insert(name.clone(), version.clone());
