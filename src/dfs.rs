@@ -172,12 +172,16 @@ impl Graph {
         visited.insert(top_module.clone(), top_version.clone());
         visiting.push(top_module.clone());
         // TODO use module name in input (main.rs)
-        let top_vertice = self
-            .vertex
-            .get(&top_module)
-            .unwrap()
-            .get(&top_version)
-            .unwrap();
+        let top_vertice_versions = match self.vertex.get(&top_module) {
+            Some(versions) => versions,
+            None => return Err(vec![format!("Top module {} not found", top_module)]),
+        };
+
+        let top_vertice = match top_vertice_versions.get(&top_version) {
+            Some(vertice) => vertice,
+            None => return Err(vec![format!("Top module {}:{} not found", top_module, top_version)]),
+        };
+
         match self.dfs_recursive(&mut visited, &mut visiting, top_vertice.clone()) {
             Ok(_) => {
                 let mut result: Vec<(String, Version)> = Vec::new();

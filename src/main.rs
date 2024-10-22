@@ -20,7 +20,7 @@ struct Requirement {
 
 fn solve_dependencies(
     modules: Vec<&Module>,
-    top_module: Module,
+    top_module: String,
 ) -> Result<Vec<(String, Version)>, Vec<String>> {
     let mut graph = Graph::new();
     graph.loads_modules(modules);
@@ -32,7 +32,10 @@ fn solve_dependencies(
         }
     }
 
-    match graph.dfs(top_module.name, top_module.version) {
+    let (top_name, top_version) = top_module.split_once(":").unwrap();
+    let top_version = Version::parse(top_version).unwrap();
+
+    match graph.dfs(top_name.to_string(), top_version) {
         Ok(result) => Ok(result),
         Err(messages) => Err(messages),
     }
@@ -199,29 +202,13 @@ fn main() {
 
     modules.push(&module);
 
-    let top_module = Module {
-        name: "PMU".to_string(),
-        version: Version::parse("0.3.0").unwrap(),
-        requirements: vec![
-            Requirement {
-                module: "UART".to_string(),
-                constraint: VersionReq::parse("^0.2.0").unwrap(),
-            },
-            Requirement {
-                module: "I2C".to_string(),
-                constraint: VersionReq::parse(">=0.2.0").unwrap(),
-            },
-            Requirement {
-                module: "DFF".to_string(),
-                constraint: VersionReq::parse("^0.1.1").unwrap(),
-            },
-        ],
-    };
+    // let top_module: String = "PMU:0.5.0".to_string();
+    let top_module: String = "PMU:0.3.0".to_string();
 
     let result = match solve_dependencies(modules, top_module) {
         Ok(result) => result,
         Err(messages) => {
-            println!("Error:\n{}", messages.join("\n"));
+            println!("Error(s):\n  - {}", messages.join("\n  - "));
             return;
         }
     };
