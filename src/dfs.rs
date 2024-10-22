@@ -85,78 +85,102 @@ impl Graph {
     fn dfs_recursive_versions(
         &self,
         visited: &mut BTreeMap<String, Version>,
+        visiting: &mut Vec<String>,
         name: String,
         versions: &Vec<Version>,
-    ) -> Result<String, String> {
+    ) -> Result<(), Vec<String>> {
+        // Create errors vector
+        let mut errors: Vec<String> = Vec::new();
+
+        // Check for cycles
+        if visiting.contains(&name) {
+            let message: String = format!("Cycle detected: {} -> {}", visiting.join(" -> "), name);
+            errors.push(message);
+            return Err(errors);
+        } else {
+            visiting.push(name.clone());
+        }
         // For each version of the dependency module
         for version in versions {
             // If a module version is already visited
             if visited.contains_key(&name) {
+                // We need to keep the same version pour the whole graph
                 if !visited.get(&name).unwrap().eq(&version) {
                     continue;
                 }
+                // TODO Need to overwreite the version ?
                 visited.get_mut(&name).unwrap().clone_from(&version);
             } else {
+                // Select a version for this module
                 visited.insert(name.clone(), version.clone());
             }
 
             let child_vertice = self.vertex.get(&name).unwrap().get(&version).unwrap();
 
-            match self.dfs_recursive(visited, child_vertice.clone()) {
-                Ok(_) => return Ok("".to_string()),
-                Err(_) => {
+            match self.dfs_recursive(visited, visiting, child_vertice.clone()) {
+                Ok(_) => {
+                    visiting.pop();
+                    return Ok(())
+                },
+                Err(messages) => {
+                    errors.push(messages.iter().map(|x| x.clone()).collect());
+                    visiting.pop();
                     visited.remove(&name);
                 }
             }
         }
-        return Err("".to_string());
+        return Err(errors);
     }
 
-    // TODO check cylces with parents
     fn dfs_recursive(
         &self,
         visited: &mut BTreeMap<String, Version>,
+        visiting: &mut Vec<String>,
         vertice: Vertice,
-    ) -> Result<String, String> {
+    ) -> Result<(), Vec<String>> {
         // Unsatisfied vertice
         if !vertice.is_satisfied() {
             let unsatisfied_requirements = vertice.get_unsatisfied_requirements_string();
-            return Err(format!(
+            let message: String = format!(
                 "Vertice requirement of {}:{} not satisfied:\n{}",
                 vertice.name, vertice.version, unsatisfied_requirements
-            ));
+            );
+            return Err(vec![message]);
         }
 
-        // Satisfied bu no children
+        // Satisfied but no children
         if vertice.children.is_empty() {
-            return Ok("No child".to_string());
+            return Ok(());
         }
 
-        // For each dependencuy module
+        // For each dependency module
         for (name, versions) in &vertice.children {
-            match self.dfs_recursive_versions(visited, name.clone(), versions) {
+            match self.dfs_recursive_versions(visited, visiting, name.clone(), versions) {
                 Ok(_) => continue,
-                Err(message) => return Err(message),
+                Err(messages) => return Err(messages),
             }
         }
-        return Ok("All children satisfied".to_string());
+        return Ok(());
     }
 
     pub fn dfs(
         &mut self,
         top_module: String,
         top_version: Version,
-    ) -> Result<Vec<(String, Version)>, String> {
+    ) -> Result<Vec<(String, Version)>, Vec<String>> {
         self.sort_children();
         let mut visited: BTreeMap<String, Version> = BTreeMap::new();
+        let mut visiting: Vec<String> = Vec::new();
         visited.insert(top_module.clone(), top_version.clone());
+        visiting.push(top_module.clone());
+        // TODO use module name in input (main.rs)
         let top_vertice = self
             .vertex
             .get(&top_module)
             .unwrap()
             .get(&top_version)
             .unwrap();
-        match self.dfs_recursive(&mut visited, top_vertice.clone()) {
+        match self.dfs_recursive(&mut visited, &mut visiting, top_vertice.clone()) {
             Ok(_) => {
                 let mut result: Vec<(String, Version)> = Vec::new();
                 for (name, version) in visited.iter() {
@@ -164,7 +188,7 @@ impl Graph {
                 }
                 Ok(result)
             }
-            Err(err) => Err(err),
+            Err(messages) => Err(messages),
         }
     }
 }

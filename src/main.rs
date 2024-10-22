@@ -21,7 +21,7 @@ struct Requirement {
 fn solve_dependencies(
     modules: Vec<&Module>,
     top_module: Module,
-) -> Result<Vec<(String, Version)>, String> {
+) -> Result<Vec<(String, Version)>, Vec<String>> {
     let mut graph = Graph::new();
     graph.loads_modules(modules);
 
@@ -34,7 +34,7 @@ fn solve_dependencies(
 
     match graph.dfs(top_module.name, top_module.version) {
         Ok(result) => Ok(result),
-        Err(err) => Err(err),
+        Err(messages) => Err(messages),
     }
 }
 
@@ -121,7 +121,12 @@ fn main() {
         requirements: vec![Requirement {
             module: "DFF".to_string(),
             constraint: VersionReq::parse("^0.2.0").unwrap(),
-        }],
+        },
+        //Requirement {
+        //    module: "PMU".to_string(),
+        //    constraint: VersionReq::parse("^0.3.0").unwrap(),
+        //}
+        ],
     };
 
     modules.push(&module);
@@ -215,8 +220,8 @@ fn main() {
 
     let result = match solve_dependencies(modules, top_module) {
         Ok(result) => result,
-        Err(err) => {
-            println!("Error: {}", err);
+        Err(messages) => {
+            println!("Error:\n{}", messages.join("\n"));
             return;
         }
     };
