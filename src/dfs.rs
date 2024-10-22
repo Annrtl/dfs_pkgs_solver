@@ -39,7 +39,10 @@ impl Graph {
             module.requirements.clone(),
         );
         if self.vertex.contains_key(&module.name) {
-            let versions_vertice = self.vertex.get_mut(&module.name).unwrap();
+            let versions_vertice = match self.vertex.get_mut(&module.name) {
+                Some(versions) => versions,
+                None => return,
+            };
             versions_vertice.insert(module.version.clone(), vertice);
         } else {
             let mut versions_vertice = HashMap::new();
@@ -65,12 +68,16 @@ impl Graph {
         }
 
         for (name, version, parent_name, parent_version) in parents_to_add {
-            let vertice = self
-                .vertex
-                .get_mut(&name)
-                .unwrap()
-                .get_mut(&version)
-                .unwrap();
+            let vertice_versions = match self.vertex.get_mut(&name) {
+                Some(versions) => versions,
+                None => continue,
+            };
+
+            let vertice = match vertice_versions.get_mut(&version) {
+                Some(vertice) => vertice,
+                None => continue,
+            };
+
             vertice.add_parents(parent_name, parent_version);
         }
     }
@@ -104,14 +111,32 @@ impl Graph {
         // For each version of the dependency module
         for version in versions {
             // If a module version is already visited
-            if visited.contains_key(&name) {
-                // We need to keep the same version pour the whole graph
-                if !visited.get(&name).unwrap().eq(&version) {
-                    continue;
+            match visited.get(&name) {
+                Some(visited_version) => {
+                    if visited_version.eq(&version) {
+                        continue;
+                    }
                 }
+                None => {}
             }
 
-            let child_vertice = self.vertex.get(&name).unwrap().get(&version).unwrap();
+            let child_vertice_versions = match self.vertex.get(&name) {
+                Some(versions) => versions,
+                None => {
+                    errors.push(format!("Module {} not found", name));
+                    visiting.pop();
+                    return Err(errors);
+                }
+            };
+
+            let child_vertice = match child_vertice_versions.get(&version) {
+                Some(vertice) => vertice,
+                None => {
+                    errors.push(format!("Module {}:{} not found", name, version));
+                    visiting.pop();
+                    return Err(errors);
+                }
+            };
 
             match self.dfs_recursive(visited, visiting, child_vertice.clone()) {
                 Ok(_) => {
@@ -123,9 +148,9 @@ impl Graph {
                     println!("Added {:?}", name);
                     #[cfg(debug_assertions)]
                     println!("Visited {:?}", visited);
-                    
-                    return Ok(())
-                },
+
+                    return Ok(());
+                }
                 Err(messages) => {
                     errors.push(messages.iter().map(|x| x.clone()).collect());
                     visiting.pop();
@@ -188,7 +213,12 @@ impl Graph {
 
         let top_vertice = match top_vertice_versions.get(&top_version) {
             Some(vertice) => vertice,
-            None => return Err(vec![format!("Top module {}:{} not found", top_module, top_version)]),
+            None => {
+                return Err(vec![format!(
+                    "Top module {}:{} not found",
+                    top_module, top_version
+                )])
+            }
         };
 
         match self.dfs_recursive(&mut visited, &mut visiting, top_vertice.clone()) {
@@ -225,7 +255,13 @@ impl Vertice {
 
     fn add_children_from_graph(&mut self, vertex: HashMap<String, HashMap<Version, Vertice>>) {
         for requirement in self.requirements.clone() {
-            let requirement_vertex = vertex.get(&requirement.module).unwrap();
+            let requirement_vertex = match vertex.get(&requirement.module) {
+                Some(versions) => versions,
+                None => {
+                    self.unsatisfied_requirements.push(requirement);
+                    continue;
+                }
+            };
             match self.add_children_from_requirement(requirement.clone(), requirement_vertex) {
                 Ok(_) => continue,
                 Err(_) => {
@@ -257,11 +293,13 @@ impl Vertice {
     }
 
     fn add_children(&mut self, name: String, version: Version) {
-        if self.children.contains_key(&name) {
-            let versions = self.children.get_mut(&name).unwrap();
-            versions.push(version);
-        } else {
-            self.children.insert(name, vec![version]);
+        match self.children.get_mut(&name) {
+            Some(versions) => {
+                versions.push(version);
+            }
+            None => {
+                self.children.insert(name, vec![version]);
+            }
         }
     }
 
@@ -281,11 +319,13 @@ impl Vertice {
     }
 
     fn add_parents(&mut self, name: String, version: Version) {
-        if self.parents.contains_key(&name) {
-            let versions = self.parents.get_mut(&name).unwrap();
-            versions.push(version);
-        } else {
-            self.parents.insert(name, vec![version]);
+        match self.parents.get_mut(&name) {
+            Some(versions) => {
+                versions.push(version);
+            }
+            None => {
+                self.parents.insert(name, vec![version]);
+            }
         }
     }
 

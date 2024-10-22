@@ -121,14 +121,15 @@ fn main() {
     let module = Module {
         name: "UART".to_string(),
         version: Version::parse("0.5.0").unwrap(),
-        requirements: vec![Requirement {
-            module: "DFF".to_string(),
-            constraint: VersionReq::parse("^0.2.0").unwrap(),
-        },
-        //Requirement {
-        //    module: "PMU".to_string(),
-        //    constraint: VersionReq::parse("^0.3.0").unwrap(),
-        //}
+        requirements: vec![
+            Requirement {
+                module: "DFF".to_string(),
+                constraint: VersionReq::parse("^0.2.0").unwrap(),
+            },
+            //Requirement {
+            //    module: "PMU".to_string(),
+            //    constraint: VersionReq::parse("^0.3.0").unwrap(),
+            //}
         ],
     };
 
